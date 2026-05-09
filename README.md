@@ -12,6 +12,9 @@ branch is to align on what we are building before we build it.
 
 | Path | Purpose |
 |---|---|
+| [`POLICIES.md`](POLICIES.md) | **Critical, enforced platform policies** — read first |
+| [`knowledge/`](knowledge) | AI‑agent‑queryable knowledge base (resources + policies) |
+| [`apps/portal/`](apps/portal) | Next.js + Tailwind portal — visual workflow builder |
 | [`docs/PLAN.md`](docs/PLAN.md) | Product plan, goals, scope, non‑goals |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | System architecture & components |
 | [`docs/ICE_API_SURFACE.md`](docs/ICE_API_SURFACE.md) | The slice of EDC / EPC / TPO Connect we depend on |

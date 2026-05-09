@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Workflow, Activity, Plug, LayoutGrid, Settings, Sparkles } from "lucide-react";
+import { Workflow, Activity, Plug, LayoutGrid, Settings, Sparkles, ShieldCheck } from "lucide-react";
 import { cls } from "@/lib/utils";
 
 const NAV = [
@@ -46,7 +46,14 @@ export function Sidebar() {
           );
         })}
       </nav>
-      <div className="mt-auto p-3">
+      <div className="mt-auto p-3 space-y-2">
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900">
+          <div className="flex items-center gap-1.5 font-medium mb-1">
+            <ShieldCheck className="w-3.5 h-3.5" />
+            No-deletion guardrail
+          </div>
+          The platform will never delete data in Encompass. Enforced at every layer.
+        </div>
         <div className="rounded-xl border border-ink-200 bg-ink-50 p-3 text-xs text-ink-600">
           <div className="font-medium text-ink-800 mb-1">Sandbox mode</div>
           Workflows run against the Encompass sandbox environment until you switch to production.

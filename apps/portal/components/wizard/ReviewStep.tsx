@@ -6,6 +6,7 @@ import type { Workflow } from "@/lib/types";
 import { FlowCanvas } from "@/components/FlowCanvas";
 import { YamlPreview } from "@/components/YamlPreview";
 import { CATALOG_BY_ID } from "@/lib/catalog";
+import { findPolicyViolations } from "@/lib/guardrails";
 import { cls } from "@/lib/utils";
 
 export function ReviewStep({
@@ -94,6 +95,25 @@ interface CheckResult { level: "ok" | "warn" | "error"; title: string; detail?: 
 
 function runPreflight(w: Workflow): CheckResult[] {
   const checks: CheckResult[] = [];
+
+  // ── Critical policy: no deletion of Encompass data ──────────────────────
+  // See knowledge/policies/no-deletion.md
+  const violations = findPolicyViolations(w.steps);
+  if (violations.length > 0) {
+    for (const v of violations) {
+      checks.push({
+        level: "error",
+        title: `Policy violation — step "${v.stepId}" uses forbidden operation "${v.toolId}"`,
+        detail: `${v.reason} The no-deletion policy bans this. See knowledge/policies/no-deletion.md.`,
+      });
+    }
+  } else {
+    checks.push({
+      level: "ok",
+      title: "No-deletion policy: passes",
+      detail: "Workflow contains no delete/remove/purge/destroy operations against Encompass.",
+    });
+  }
 
   if (w.steps.length === 0) {
     checks.push({ level: "error", title: "Workflow has no steps", detail: "Add at least one step before publishing." });

@@ -1,7 +1,12 @@
 import type { CatalogTool, ConnectionDef } from "./types";
+import { assertCatalogClean } from "./guardrails";
 
 // The tool catalog. Each entry maps to a real adapter call (see ICE_API_SURFACE.md).
 // Inputs drive the StepInspector form rendering.
+//
+// CRITICAL: this catalog is filtered against knowledge/policies/no-deletion.md
+// at the bottom of this file. Adding a delete/remove/purge/destroy tool here
+// will throw at module load. See lib/guardrails.ts.
 
 export const CATALOG: CatalogTool[] = [
   // ── Encompass / TPO Connect ────────────────────────────────────────────────
@@ -229,6 +234,10 @@ export const CATALOG: CatalogTool[] = [
     ],
   },
 ];
+
+// Enforce the no-deletion policy at module load.
+// If anyone adds a forbidden tool above, the build fails immediately.
+assertCatalogClean(CATALOG);
 
 export const CATALOG_BY_ID: Record<string, CatalogTool> =
   Object.fromEntries(CATALOG.map((t) => [t.id, t]));

@@ -40,7 +40,22 @@ recorded in audit.
 - Tenants can opt into **BYO‑key** so prompts go to their own Anthropic
   account directly.
 
-## 4. Audit log
+## 4. Critical platform policies
+
+The platform enforces a small set of non‑negotiable rules that cannot be
+overridden in band by any workflow, AI step, or user instruction. They live in
+[`knowledge/policies/`](../knowledge/policies/) and are loaded by AI agents
+and enforced by the runtime.
+
+| Policy | Severity | Where |
+|---|---|---|
+| **No deletion of Encompass data — of any type, ever** | critical | [`knowledge/policies/no-deletion.md`](../knowledge/policies/no-deletion.md) |
+
+Each policy is enforced at multiple layers (catalog filter, portal preflight,
+runtime adapter allowlist, AI tool whitelist) so a single bug cannot bypass
+it. See the policy files for the full enforcement chain.
+
+## 5. Audit log
 
 - Append‑only, hash‑chained; each entry references the prior entry's hash.
 - Entries:
@@ -50,7 +65,7 @@ recorded in audit.
     error
 - Exportable as a signed bundle for compliance reviews.
 
-## 5. Data retention
+## 6. Data retention
 
 - Run state: 13 months default; configurable per tenant.
 - Webhook archive: 30 days.
@@ -58,7 +73,7 @@ recorded in audit.
 - Document binaries: not stored; downloaded transiently and discarded after
   the workflow run unless a step explicitly persists.
 
-## 6. Network & infrastructure
+## 7. Network & infrastructure
 
 - All traffic over TLS 1.2+.
 - Outbound to ICE is allow‑listed by domain; outbound elsewhere requires a
@@ -66,7 +81,7 @@ recorded in audit.
 - Secrets in KMS; runtime services receive ephemeral credentials.
 - Per‑tenant data isolated via row‑level security in Postgres.
 
-## 7. Compliance roadmap
+## 8. Compliance roadmap
 
 - SOC 2 Type II readiness in Phase 3 (Roadmap).
 - Vendor risk: any new third‑party tool used by a step requires a documented

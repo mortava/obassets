@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "updatedAt": "2026-05-09",
+  "description": "AI-agent-queryable index of trusted resources and enforced policies. Agents start here.",
+  "entries": [
+    {
+      "id": "policy-no-deletion",
+      "type": "policy",
+      "kind": "policy",
+      "severity": "critical",
+      "title": "Never delete data in Encompass — of any type, ever",
+      "path": "knowledge/policies/no-deletion.md",
+      "tags": ["encompass", "guardrail", "deletion", "data-integrity", "compliance"],
+      "trust": "official",
+      "status": "enforced"
+    },
+    {
+      "id": "ice-encompass-developer-connect",
+      "type": "resource",
+      "title": "Encompass Developer Connect — Welcome / Documentation Hub",
+      "path": "knowledge/resources/ice-encompass-developer-connect.md",
+      "url": "https://developer.icemortgagetechnology.com/developer-connect/docs/welcome",
+      "publisher": "ICE Mortgage Technology",
+      "category": "developer-docs",
+      "trust": "official",
+      "tags": ["encompass", "edc", "rest-api", "oauth", "webhooks", "send-docs", "tpo-connect"],
+      "status": "active"
+    },
+    {
+      "id": "ice-encompass-web-developer",
+      "type": "resource",
+      "title": "Encompass Web — Developer Resources",
+      "path": "knowledge/resources/ice-encompass-web-developer.md",
+      "url": "https://developer.icemortgagetechnology.com/developer-connect/docs/encompass-web-developer",
+      "publisher": "ICE Mortgage Technology",
+      "category": "developer-docs",
+      "trust": "official",
+      "tags": ["encompass-web", "input-form-builder", "business-rules", "field-mapping", "ui-customization"],
+      "status": "active"
+    },
+    {
+      "id": "ice-encompass-product-overview",
+      "type": "resource",
+      "title": "Encompass Developer Connect — Product Overview",
+      "path": "knowledge/resources/ice-encompass-product-overview.md",
+      "url": "https://mortgagetech.ice.com/resources/encompass-developer-connect",
+      "publisher": "ICE Mortgage Technology",
+      "category": "marketing-overview",
+      "trust": "official",
+      "tags": ["encompass", "edc", "product-overview", "ecosystem"],
+      "status": "active"
+    }
+  ]
+}
