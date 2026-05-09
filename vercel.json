@@ -1,6 +1,0 @@
-{
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "cd apps/portal && npm install --no-audit --no-fund",
-  "buildCommand": "cd apps/portal && npm run build",
-  "outputDirectory": "apps/portal/.next"
-}
