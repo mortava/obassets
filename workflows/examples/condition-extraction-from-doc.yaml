@@ -1,0 +1,77 @@
+apiVersion: obl.workflows/v1
+kind: Workflow
+metadata:
+  id: condition-extraction-from-doc
+  version: 1
+  owner: ops@example.com
+  description: |
+    When a new document is added to a loan in the "Underwriting Conditions"
+    bucket, extract structured conditions from it and reconcile against
+    existing open conditions. Auto-clear obvious matches; surface ambiguous
+    cases to an underwriter.
+  tags: [conditions, doc-indexing, ai, underwriting]
+
+trigger:
+  source: encompass.document
+  event: added
+  filter: "document.bucket in ['Underwriting Conditions', 'UW Cond']"
+
+steps:
+  - id: download_doc
+    use: edc.loan.documents.download
+    with:
+      loanId: "{{ trigger.loanId }}"
+      documentId: "{{ trigger.document.id }}"
+      attachmentId: "{{ trigger.document.attachmentId }}"
+
+  - id: list_open_conditions
+    use: edc.loan.conditions.list
+    with:
+      loanId: "{{ trigger.loanId }}"
+      status: open
+
+  - id: extract
+    use: ai.extract
+    with:
+      model: claude-sonnet-4-6
+      prompt: prompts/condition_extract@7
+      input:
+        document_ref: "{{ steps.download_doc.output.ref }}"
+        open_conditions: "{{ steps.list_open_conditions.output }}"
+      output_schema: schemas/condition_extraction.json
+    timeout: 120s
+
+  - id: per_match
+    use: flow.foreach
+    in: "{{ steps.extract.output.matches }}"
+    as: match
+    do:
+      - id: high_confidence_clear
+        if: "match.confidence >= 0.9 && match.action == 'clear'"
+        use: edc.loan.conditions.clear
+        with:
+          loanId: "{{ trigger.loanId }}"
+          conditionId: "{{ match.conditionId }}"
+          comment: "Auto-cleared by AI extraction (run {{ run.id }}); evidence: {{ match.evidence_quote }}"
+
+      - id: review_task
+        if: "match.confidence < 0.9 || match.action != 'clear'"
+        use: human.task.create
+        with:
+          title: "Review condition match for loan {{ trigger.loanId }}"
+          assignee_role: underwriter
+          summary: "{{ match.summary }}"
+          evidence:
+            - quote: "{{ match.evidence_quote }}"
+            - condition_id: "{{ match.conditionId }}"
+          proposed_action: "{{ match.action }}"
+
+  - id: log_unmatched
+    if: "len(steps.extract.output.unmatched_findings) > 0"
+    use: notify.slack
+    with:
+      channel: "#uw-ai-misc"
+      template: uw_extract_unmatched
+      vars:
+        loanId: "{{ trigger.loanId }}"
+        findings: "{{ steps.extract.output.unmatched_findings }}"

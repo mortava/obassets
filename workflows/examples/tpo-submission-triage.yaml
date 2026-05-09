@@ -1,0 +1,122 @@
+apiVersion: obl.workflows/v1
+kind: Workflow
+metadata:
+  id: tpo-submission-triage
+  version: 1
+  owner: tpo-ops@example.com
+  description: |
+    When a wholesale broker submits a TPO file, run AI triage on the loan
+    summary and either return-to-broker with a condition list or advance
+    the loan to Setup. A human approves any return-to-broker action.
+  tags: [tpo, wholesale, triage, ai]
+
+trigger:
+  source: encompass.field_change
+  field: Loan.SubmittedToLender
+  op: equals
+  value: true
+  filter: "loan.channel == 'Wholesale'"
+
+context:
+  return_pkg_name: broker_return_pkg
+
+steps:
+  - id: pull_loan
+    use: edc.loan.get
+    with:
+      loanId: "{{ trigger.loanId }}"
+      fields:
+        - loanAmount
+        - loanProgram
+        - propertyState
+        - subjectProperty.appraisedValue
+        - borrowerSummary
+        - documents
+        - milestones
+        - channel
+        - tpoBroker
+
+  - id: ai_triage
+    use: ai.review
+    with:
+      model: claude-opus-4-7
+      prompt: prompts/tpo_submission_review@4
+      input:
+        loan: "{{ steps.pull_loan.output }}"
+      output_schema: schemas/tpo_triage.json
+    retry:
+      max_attempts: 2
+      backoff: exponential
+      "on": [schema_invalid]
+    timeout: 60s
+
+  - id: branch_decision
+    use: flow.if
+    if: "steps.ai_triage.output.recommendation == 'return_to_broker'"
+    then:
+      - id: draft_conditions
+        use: data.transform
+        with:
+          input: "{{ steps.ai_triage.output.missing_items }}"
+          mapping: condition_from_finding
+
+      - id: human_approve_return
+        use: human.task.wait_approval
+        with:
+          title: "Return TPO submission {{ trigger.loanId }} to broker?"
+          assignee_role: tpo_ops_lead
+          summary: "{{ steps.ai_triage.output.summary }}"
+          evidence:
+            - loan_link: "encompass://loans/{{ trigger.loanId }}"
+            - findings: "{{ steps.ai_triage.output.missing_items }}"
+          proposed_action:
+            - "Create {{ len(steps.draft_conditions.output) }} conditions"
+            - "Send broker return package: {{ context.return_pkg_name }}"
+          sla: 2h
+
+      - id: apply_conditions
+        if: "steps.human_approve_return.output.approved"
+        use: edc.loan.conditions.create
+        with:
+          loanId: "{{ trigger.loanId }}"
+          conditions: "{{ steps.draft_conditions.output }}"
+
+      - id: send_return
+        if: "steps.human_approve_return.output.approved"
+        use: edc.send_docs.on_demand
+        with:
+          loanId: "{{ trigger.loanId }}"
+          package: "{{ context.return_pkg_name }}"
+          recipients: [tpo_broker]
+
+      - id: notify_broker
+        if: "steps.human_approve_return.output.approved"
+        use: notify.email
+        with:
+          template: tpo_return_notice
+          to: "{{ loan.tpoBroker.email }}"
+          vars:
+            loanId: "{{ trigger.loanId }}"
+            findings: "{{ steps.ai_triage.output.missing_items }}"
+
+    else:
+      - id: advance_to_setup
+        use: edc.loan.milestone.advance
+        with:
+          loanId: "{{ trigger.loanId }}"
+          to: Setup
+
+      - id: notify_processor
+        use: notify.slack
+        with:
+          channel: "#tpo-pipeline"
+          template: tpo_advanced_to_setup
+          vars:
+            loanId: "{{ trigger.loanId }}"
+            ai_summary: "{{ steps.ai_triage.output.summary }}"
+
+on_error:
+  use: human.task.create
+  with:
+    title: "tpo-submission-triage failed for loan {{ trigger.loanId }}"
+    assignee_role: tpo_ops_lead

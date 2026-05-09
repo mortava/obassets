@@ -1,0 +1,14 @@
+# Template: human approval gate
+#
+# Use this fragment whenever an AI step proposes a side effect that needs
+# explicit sign-off. Replace ${...} placeholders.
+
+- id: ${approval_id}
+  use: human.task.wait_approval
+  with:
+    title: "${title}"
+    assignee_role: ${role}
+    summary: "{{ steps.${ai_step_id}.output.summary }}"
+    evidence: ${evidence_list}
+    proposed_action: ${proposed_action_list}
+    sla: ${sla}

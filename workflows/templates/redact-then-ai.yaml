@@ -1,0 +1,19 @@
+# Template: redact-then-ai
+#
+# Apply tenant PII redaction policy before sending data to an external LLM.
+# The AI activity wrapper does this automatically when policy = strict, but
+# authors can also call it explicitly for clarity in audit logs.
+
+- id: ${redact_id}
+  use: ai.redact
+  with:
+    input: ${raw_input}
+    policy: tenant.default
+
+- id: ${ai_id}
+  use: ${ai_tool}        # ai.classify | ai.extract | ai.review | ai.summarize
+  with:
+    model: ${model}
+    prompt: ${prompt_ref}
+    input: "{{ steps.${redact_id}.output }}"
+    output_schema: ${schema_ref}

@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openbroker.dev/schemas/workflow.v1.json",
+  "title": "OBL Workflow v1",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "trigger", "steps"],
+  "additionalProperties": false,
+  "properties": {
+    "apiVersion": { "const": "obl.workflows/v1" },
+    "kind": { "const": "Workflow" },
+    "metadata": {
+      "type": "object",
+      "required": ["id", "version", "owner"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$" },
+        "version": { "type": "integer", "minimum": 1 },
+        "owner": { "type": "string", "format": "email" },
+        "description": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/inputDef" }
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "trigger": { "$ref": "#/$defs/trigger" },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/step" }
+    },
+    "on_error": { "$ref": "#/$defs/errorPolicy" }
+  },
+
+  "$defs": {
+    "inputDef": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["string", "number", "boolean", "object", "array"] },
+        "required": { "type": "boolean", "default": true },
+        "default": {},
+        "description": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+
+    "trigger": {
+      "type": "object",
+      "required": ["source"],
+      "oneOf": [
+        {
+          "properties": {
+            "source": { "const": "encompass.webhook" },
+            "resource": {
+              "enum": [
+                "loan",
+                "loan.fieldChange",
+                "loan.milestone",
+                "loan.documents",
+                "loan.conditions",
+                "loan.services",
+                "pipeline"
+              ]
+            },
+            "events": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+            "filter": { "type": "string" }
+          },
+          "required": ["source", "resource", "events"],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "source": { "const": "encompass.field_change" },
+            "field": { "type": "string" },
+            "op": { "enum": ["equals", "changes", "exists", "matches"] },
+            "value": {},
+            "filter": { "type": "string" }
+          },
+          "required": ["source", "field"],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "source": { "const": "encompass.milestone" },
+            "milestone": { "type": "string" },
+            "event": { "enum": ["started", "completed", "reverted"] },
+            "filter": { "type": "string" }
+          },
+          "required": ["source", "milestone", "event"],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "source": { "const": "encompass.document" },
+            "docType": { "type": "string" },
+            "event": { "enum": ["added", "updated"] },
+            "filter": { "type": "string" }
+          },
+          "required": ["source", "event"],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "source": { "const": "schedule" },
+            "cron": { "type": "string" },
+            "tz": { "type": "string", "default": "America/Los_Angeles" },
+            "scope": { "type": "string", "description": "EDC pipeline query name or inline filter" }
+          },
+          "required": ["source", "cron"],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "source": { "const": "manual" },
+            "inputs": { "type": "object" }
+          },
+          "required": ["source"],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "source": { "const": "subworkflow" }
+          },
+          "required": ["source"],
+          "additionalProperties": false
+        }
+      ]
+    },
+
+    "step": {
+      "type": "object",
+      "required": ["id", "use"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+        "use": {
+          "type": "string",
+          "pattern": "^(edc|epc|ai|human|notify|flow|data)\\.[a-z0-9_.]+$"
+        },
+        "with": { "type": "object" },
+        "if": { "type": "string" },
+        "retry": {
+          "type": "object",
+          "properties": {
+            "max_attempts": { "type": "integer", "minimum": 1, "maximum": 20 },
+            "backoff": { "enum": ["fixed", "linear", "exponential"] },
+            "on": { "type": "array", "items": { "type": "string" } }
+          },
+          "additionalProperties": false
+        },
+        "timeout": { "type": "string", "pattern": "^\\d+(ms|s|m|h)$" },
+        "output": { "type": "string" },
+        "on_error": { "$ref": "#/$defs/errorPolicy" },
+        "then": { "type": "array", "items": { "$ref": "#/$defs/step" } },
+        "else": { "type": "array", "items": { "$ref": "#/$defs/step" } },
+        "branches": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/step" }
+          }
+        },
+        "in": { "type": "string" },
+        "as": { "type": "string" },
+        "do": { "type": "array", "items": { "$ref": "#/$defs/step" } }
+      },
+      "additionalProperties": false
+    },
+
+    "errorPolicy": {
+      "type": "object",
+      "properties": {
+        "use": { "type": "string" },
+        "with": { "type": "object" },
+        "fail": { "type": "boolean", "default": true }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,80 @@
+apiVersion: obl.workflows/v1
+kind: Workflow
+metadata:
+  id: service-order-babysitter
+  version: 1
+  owner: ops@example.com
+  description: |
+    Watches credit / VOI / VOE / appraisal service orders. If a service
+    order has been "Ordered" without a status update for longer than its
+    SLA, AI summarizes prior comms and drafts a follow-up; a human
+    approves or edits before it sends.
+  tags: [services, sla, ai]
+
+trigger:
+  source: schedule
+  cron: "*/30 * * * *"
+  tz: America/Los_Angeles
+  scope: pipeline.open_service_orders_with_sla_breach
+
+steps:
+  - id: list_breached
+    use: edc.pipeline.search
+    with:
+      query: pipeline.open_service_orders_with_sla_breach
+
+  - id: per_order
+    use: flow.foreach
+    in: "{{ steps.list_breached.output.results }}"
+    as: order
+    do:
+      - id: pull_loan_min
+        use: edc.loan.get
+        with:
+          loanId: "{{ order.loanId }}"
+          fields:
+            - loanNumber
+            - borrowerSummary
+            - services.{{ order.serviceType }}
+
+      - id: draft_followup
+        use: ai.summarize
+        with:
+          model: claude-haiku-4-5-20251001
+          prompt: prompts/service_followup_draft@2
+          input:
+            order: "{{ order }}"
+            loan: "{{ steps.pull_loan_min.output }}"
+          output_schema: schemas/service_followup.json
+
+      - id: approve_send
+        use: human.task.wait_approval
+        with:
+          title: "Send follow-up on {{ order.serviceType }} for loan {{ order.loanNumber }}?"
+          assignee_role: ops_processor
+          summary: "{{ steps.draft_followup.output.summary }}"
+          proposed_action:
+            - "Send email to {{ order.vendor.email }}"
+            - "Note added to loan timeline"
+          evidence:
+            - last_status: "{{ order.lastStatus }}"
+            - hours_since_update: "{{ order.hoursSinceUpdate }}"
+          sla: 30m
+
+      - id: send_followup
+        if: "steps.approve_send.output.approved"
+        use: notify.email
+        with:
+          to: "{{ order.vendor.email }}"
+          template: service_vendor_followup
+          vars:
+            body: "{{ steps.approve_send.output.edited_body || steps.draft_followup.output.body }}"
+            loanNumber: "{{ order.loanNumber }}"
+
+      - id: log_to_loan
+        if: "steps.approve_send.output.approved"
+        use: edc.loan.field.set
+        with:
+          loanId: "{{ order.loanId }}"
+          fields:
+            "Services.{{ order.serviceType }}.LastFollowupAt": "{{ now() }}"
