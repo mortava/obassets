@@ -1,7 +1,7 @@
 # Connecting the portal to Encompass
 
 The portal talks to Encompass through a server-side adapter
-(`apps/portal/lib/server/encompass.ts`). The Connections page in the
+(`lib/server/encompass.ts`). The Connections page in the
 dashboard has a **Test connection** button that exchanges credentials for an
 OAuth 2.0 token and exercises a lightweight read endpoint end-to-end, so you
 can verify the wiring in one click.

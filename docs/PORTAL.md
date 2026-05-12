@@ -6,7 +6,6 @@ on **Encompass Developer Connect** and **TPO Connect**.
 ## Run it locally
 
 ```bash
-cd apps/portal
 npm install
 npm run dev
 # → http://localhost:3000
@@ -51,7 +50,7 @@ work in Phase 1 of the roadmap.
 ## Files
 
 ```
-apps/portal/
+.
 ├── app/                       Next.js App Router pages
 │   ├── page.tsx               Dashboard
 │   ├── new/page.tsx           Wizard (orchestrates the 6 steps)

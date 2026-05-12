@@ -1,78 +1,94 @@
-# OpenBroker Labs — AI Workflow Platform for Encompass & TPO Connect
+# OpenBroker Labs — AI Workflow Portal for Encompass & TPO Connect
 
-A platform to design, run, and observe **AI‑augmented automated workflows** that
-plug into ICE Mortgage Technology's **Encompass** LOS and **TPO Connect** portal
-through the Encompass Developer Connect (EDC) and Partner Connect (EPC) APIs.
+A Next.js portal to design, run, and observe **AI‑augmented automated workflows**
+on ICE Mortgage Technology's **Encompass** LOS and **TPO Connect** portal,
+backed by a typed server‑side adapter to the Encompass Developer Connect (EDC)
+REST API.
 
-This repository currently holds the **plan, architecture, and workflow schema**
-that will drive the implementation. No application code yet — the goal of this
-branch is to align on what we are building before we build it.
+## Run it
 
-## Contents
-
-| Path | Purpose |
-|---|---|
-| [`POLICIES.md`](POLICIES.md) | **Critical, enforced platform policies** — read first |
-| [`knowledge/`](knowledge) | AI‑agent‑queryable knowledge base (resources + policies) |
-| [`apps/portal/`](apps/portal) | Next.js + Tailwind portal — visual workflow builder |
-| [`docs/PLAN.md`](docs/PLAN.md) | Product plan, goals, scope, non‑goals |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | System architecture & components |
-| [`docs/ICE_API_SURFACE.md`](docs/ICE_API_SURFACE.md) | The slice of EDC / EPC / TPO Connect we depend on |
-| [`docs/WORKFLOW_MODEL.md`](docs/WORKFLOW_MODEL.md) | Declarative workflow model (triggers, steps, AI calls) |
-| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Phased delivery plan |
-| [`docs/SECURITY.md`](docs/SECURITY.md) | Auth, secrets, PII, audit |
-| [`workflows/schema/workflow.schema.json`](workflows/schema/workflow.schema.json) | JSON Schema for workflow definitions |
-| [`workflows/examples/`](workflows/examples) | Reference workflow definitions |
-| [`workflows/templates/`](workflows/templates) | Reusable snippets (auth, notifiers, AI prompts) |
-
-## TL;DR
-
-A user defines a workflow in YAML such as:
-
-```yaml
-trigger:
-  source: encompass.webhook
-  resource: loan
-  events: [milestone.completed]
-  filter: "milestone == 'Submittal' && loan.channel == 'Wholesale'"
-
-steps:
-  - id: pull_loan
-    use: edc.loan.get
-    with: { loanId: "{{ trigger.loanId }}" }
-
-  - id: ai_review
-    use: ai.classify
-    with:
-      model: claude-opus-4-7
-      prompt_template: tpo_submission_review
-      input: "{{ steps.pull_loan.output }}"
-      schema: schemas/submission_review.json
-
-  - id: branch
-    if: "ai_review.output.recommendation == 'return_to_broker'"
-    then:
-      - use: edc.loan.conditions.create
-        with: { loanId: "{{ trigger.loanId }}", conditions: "{{ ai_review.output.conditions }}" }
-      - use: edc.send_docs.opening
-        with: { loanId: "{{ trigger.loanId }}", package: "broker_return_pkg" }
-    else:
-      - use: edc.loan.milestone.advance
-        with: { loanId: "{{ trigger.loanId }}", to: "Setup" }
+```bash
+npm install
+npm run dev      # → http://localhost:3000
+npm test         # vitest unit tests for the adapter
 ```
 
-…and the platform handles webhook ingestion, OAuth, retries, observability,
-human approvals, and audit.
+## Repo layout
 
-## Design principles
+```
+.                       Next.js App Router project (deployed by Vercel)
+├── app/                routes + API handlers
+│   ├── api/
+│   │   ├── connections/encompass/test       OAuth + smoke test
+│   │   ├── connections/encompass/status     env-var status
+│   │   └── healthz
+│   ├── connections/page.tsx
+│   ├── new/page.tsx                         wizard
+│   ├── workflows/[id]/page.tsx
+│   └── …
+├── components/         UI: AppShell, Sidebar, wizard, FlowCanvas, …
+├── lib/
+│   ├── server/         server-only: EDC adapter, secrets, tests
+│   └── …               shared types, catalog, guardrails, yaml, samples
+├── docs/               architecture, plan, roadmap, security, portal guide
+│   ├── ARCHITECTURE.md
+│   ├── PLAN.md
+│   ├── ROADMAP.md
+│   ├── SECURITY.md
+│   ├── WORKFLOW_MODEL.md
+│   ├── ICE_API_SURFACE.md
+│   ├── ENCOMPASS_SETUP.md     how to provision the EDC API user + env vars
+│   └── PORTAL.md
+├── knowledge/          AI-agent-queryable resource + policy index
+│   ├── index.json
+│   ├── resources/      ICE Developer Connect, Encompass Web, etc.
+│   └── policies/       no-deletion.md (critical, enforced)
+├── workflows/          declarative workflow examples + JSON Schema
+├── POLICIES.md         pointer to critical platform policies
+├── package.json
+├── next.config.mjs
+└── tailwind.config.ts
+```
 
-1. **Declarative first.** Workflows are data, not code. Versioned, diffable,
-   reviewable.
-2. **AI is a step, not the system.** LLMs run inside steps with strict
-   structured output. The workflow engine stays deterministic.
-3. **Mortgage‑native.** Concepts like milestones, conditions, fields, channels,
-   plan codes, and disclosure packages are first‑class.
-4. **Observable.** Every run is replayable; every AI call is logged with inputs,
-   outputs, prompts, and model version.
-5. **Compliant by default.** PII redaction, audit trail, scoped credentials,
-   no data leaves the tenant boundary without explicit policy.
+## Critical: no‑deletion policy
+
+The platform **never** deletes data in Encompass — not loans, documents,
+attachments, conditions, milestones, contacts, or fields. The rule is
+enforced at four layers (catalog filter, portal preflight, runtime HTTP
+adapter, AI tool whitelist). See [`POLICIES.md`](POLICIES.md) and
+[`knowledge/policies/no-deletion.md`](knowledge/policies/no-deletion.md).
+
+## Connecting to Encompass
+
+1. Provision a least-privilege API user in Encompass admin (NOT a personal
+   admin account).
+2. Mint an EDC application; capture `client_id` / `client_secret`.
+3. Add `ENCOMPASS_*` env vars locally (`.env.example` template) or in
+   Vercel → Project → Settings → Environment Variables.
+4. Open the portal → **Connections** → **Test connection** on the
+   Encompass row. The dashboard exchanges your credentials for an OAuth
+   token and calls a lightweight read endpoint, end‑to‑end.
+
+Full setup walkthrough: [`docs/ENCOMPASS_SETUP.md`](docs/ENCOMPASS_SETUP.md).
+
+## Deploying
+
+The repo is a standard Next.js app at the root — no monorepo config
+needed. Vercel auto‑detects on import.
+
+1. Import `mortava/obassets` at <https://vercel.com/new>.
+2. Add `ENCOMPASS_*` env vars (mark each as Secret).
+3. Deploy. Every subsequent push auto‑deploys.
+
+## Status
+
+| Surface | State |
+|---|---|
+| Workflow JSON Schema + examples | Done |
+| Knowledge base | Done |
+| Portal wizard (Goal → Trigger → Flow → Connect → Review → Publish) | Done |
+| Server-side EDC OAuth adapter | Done |
+| Dashboard live connection test | Done |
+| No-deletion guardrail (4 layers) | Done + tested |
+| Durable workflow runtime (Temporal/Inngest) | Planned (Phase 1, see `docs/ROADMAP.md`) |
+| Multi-tenant prod | Planned (Phase 2) |

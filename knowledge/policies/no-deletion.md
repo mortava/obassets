@@ -86,9 +86,9 @@ These are explicitly *not* deletions and remain available:
 
 The rule is enforced **at every layer** so a single bug cannot bypass it:
 
-1. **Catalog layer** (`apps/portal/lib/catalog.ts`) — no delete‑style tool
+1. **Catalog layer** (`lib/catalog.ts`) — no delete‑style tool
    exists. Adding one is blocked at module load time by `lib/guardrails.ts`.
-2. **Portal preflight** (`apps/portal/components/wizard/ReviewStep.tsx`) —
+2. **Portal preflight** (`components/wizard/ReviewStep.tsx`) —
    any workflow whose step `use` matches a forbidden pattern fails the
    review check with an **error** (blocking, not a warning). The user cannot
    advance to Publish.
