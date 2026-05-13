@@ -3,6 +3,8 @@
 [![test](https://github.com/mortava/obassets/actions/workflows/test.yml/badge.svg?branch=claude%2Fai-workflow-management-WMRgQ)](https://github.com/mortava/obassets/actions/workflows/test.yml)
 [![verify-deploy](https://github.com/mortava/obassets/actions/workflows/verify-deploy.yml/badge.svg?branch=claude%2Fai-workflow-management-WMRgQ)](https://github.com/mortava/obassets/actions/workflows/verify-deploy.yml)
 
+> **Live production endpoint:** `https://vxoqwyntwsszipabhiuv.supabase.co/functions/v1/encompass-test` — verified end-to-end against the real `api.elliemae.com` OAuth endpoint. See [`DEPLOY_STATUS.md`](DEPLOY_STATUS.md).
+
 A Next.js portal to design, run, and observe **AI‑augmented automated workflows**
 on ICE Mortgage Technology's **Encompass** LOS and **TPO Connect** portal,
 backed by a typed server‑side adapter to the Encompass Developer Connect (EDC)
