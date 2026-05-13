@@ -1,0 +1,65 @@
+name: verify-deploy
+
+# Runs after every push and probes the deployed portal at PROD_URL.
+# Skips cleanly if the PROD_URL repo variable isn't set, so the workflow
+# never blocks the test pipeline before the deploy is wired up.
+#
+# To enable:
+#   Repo → Settings → Secrets and variables → Actions → Variables
+#   Add:  PROD_URL = https://your-deploy.vercel.app
+#
+# This produces a ✓ green check on every push when the production deploy
+# is healthy AND the Encompass adapter path reaches ICE successfully
+# (the --with-edc-test flag posts invalid credentials and expects a 401/
+# 403 surfaced from upstream Encompass — which proves the wiring works).
+
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "Override PROD_URL for this run"
+        required: false
+        type: string
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine target URL
+        id: target
+        run: |
+          URL="${{ github.event.inputs.url }}"
+          if [[ -z "$URL" ]]; then URL="${{ vars.PROD_URL }}"; fi
+          if [[ -z "$URL" ]]; then
+            echo "PROD_URL repo variable not set — skipping verify-deploy."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "url=$URL" >> $GITHUB_OUTPUT
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Wait for fresh deploy to roll out
+        if: steps.target.outputs.skip != 'true'
+        run: |
+          # Give Vercel up to ~3 min to finish rolling out the new deploy
+          # before we probe — otherwise we'd test the previous version.
+          for i in 1 2 3 4 5 6; do
+            code="$(curl -sS -o /tmp/h -w '%{http_code}' --max-time 10 "${{ steps.target.outputs.url }}/api/healthz" || echo 000)"
+            if [[ "$code" == "200" ]]; then
+              echo "healthz ready (HTTP $code)"; exit 0
+            fi
+            echo "healthz not ready yet (HTTP $code), sleep 30s ($i/6)"
+            sleep 30
+          done
+          echo "::warning::healthz never returned 200; continuing to verify anyway"
+
+      - name: Probe deploy
+        if: steps.target.outputs.skip != 'true'
+        run: |
+          chmod +x scripts/verify-deploy.sh
+          scripts/verify-deploy.sh "${{ steps.target.outputs.url }}" --with-edc-test

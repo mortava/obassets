@@ -90,5 +90,31 @@ needed. Vercel auto‑detects on import.
 | Server-side EDC OAuth adapter | Done |
 | Dashboard live connection test | Done |
 | No-deletion guardrail (4 layers) | Done + tested |
+| Unit tests (`lib/server/__tests__/encompass.test.ts`) | 15/15 pass |
+| Integration tests with mock EDC over real HTTP | 7/7 pass |
+| Deploy probe script (`scripts/verify-deploy.sh`) | Done |
+| GitHub Actions CI (`test.yml`, `verify-deploy.yml`) | Done |
 | Durable workflow runtime (Temporal/Inngest) | Planned (Phase 1, see `docs/ROADMAP.md`) |
 | Multi-tenant prod | Planned (Phase 2) |
+
+## Verifying the production deploy
+
+Two CI workflows run on every push:
+
+- `.github/workflows/test.yml` — typecheck, vitest (22 tests), `next build`
+- `.github/workflows/verify-deploy.yml` — waits for Vercel to roll out, then
+  runs `scripts/verify-deploy.sh` against the deployed URL. Skips cleanly
+  until the `PROD_URL` repo variable is set.
+
+To enable the deploy verifier:
+
+1. Vercel: import the repo at <https://vercel.com/new>. With the app at the
+   repo root no extra configuration is needed.
+2. Set `ENCOMPASS_*` env vars in Vercel → Project → Settings → Environment
+   Variables (see `.env.example`).
+3. GitHub: **Settings → Secrets and variables → Actions → Variables → New
+   repository variable**, name `PROD_URL`, value = your `https://*.vercel.app` URL.
+
+From the next push onward, the CI checks "test" and "verify-deploy" both
+go green when the production deploy is healthy and the Encompass adapter
+path reaches ICE successfully.
