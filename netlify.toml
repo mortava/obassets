@@ -1,0 +1,10 @@
+# Netlify build settings — Next.js auto-detected, Next.js Runtime
+# (@netlify/plugin-nextjs) handles App Router + API routes server-side.
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+# Sensible defaults; can be overridden in the Netlify dashboard.
+[build.environment]
+  NODE_VERSION = "22"
+  NEXT_TELEMETRY_DISABLED = "1"
